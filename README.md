@@ -1,8 +1,8 @@
-# Day 07 - Piscine SQL
+# Day 09 - Piscine SQL
 
-## _Aggregated data is more informative, isn't it?_
+## _RDBMS is not just a tables_
 
-Resume: Today you will see how to use specific OLAP constructions to get a "Value" from data.
+Resume: Today you will see how to create and use functional blocks in Databases.
 
 ## Contents
 
@@ -13,41 +13,49 @@ Resume: Today you will see how to use specific OLAP constructions to get a "Valu
 3. [Chapter III](#chapter-iii) \
     3.1. [Rules of the day](#rules-of-the-day)  
 4. [Chapter IV](#chapter-iv) \
-    4.1. [Exercise 00 - Simple aggregated information](#exercise-00-simple-aggregated-information)  
+    4.1. [Exercise 00 - Audit of incoming inserts](#exercise-00-audit-of-incoming-inserts)  
 5. [Chapter V](#chapter-v) \
-    5.1. [Exercise 01 - Let’s see real names](#exercise-01-lets-see-real-names)  
+    5.1. [Exercise 01 - Audit of incoming updates](#exercise-01-audit-of-incoming-updates)  
 6. [Chapter VI](#chapter-vi) \
-    6.1. [Exercise 02 - Restaurants statistics](#exercise-02-restaurants-statistics)  
+    6.1. [Exercise 02 - Audit of incoming deletes](#exercise-02-audit-of-incoming-deletes)  
 7. [Chapter VII](#chapter-vii) \
-    7.1. [Exercise 03 - Restaurants statistics #2](#exercise-03-restaurants-statistics-2)  
+    7.1. [Exercise 03 - Generic Audit](#exercise-03-generic-audit)  
 8. [Chapter VIII](#chapter-viii) \
-    8.1. [Exercise 04 - Clause for groups](#exercise-04-clause-for-groups)
+    8.1. [Exercise 04 - Database View VS Database Function](#exercise-04-database-view-vs-database-function)
 9. [Chapter IX](#chapter-ix) \
-    9.1. [Exercise 05 - Person's uniqueness](#exercise-05-persons-uniqueness)
+    9.1. [Exercise 05 - Parameterized Database Function](#exercise-05-parameterized-database-function)
 10. [Chapter X](#chapter-x) \
-    10.1. [Exercise 06 - Restaurant metrics](#exercise-06-restaurant-metrics)
+    10.1. [Exercise 06 - Function like a function-wrapper](#exercise-06-function-like-a-function-wrapper)
 11. [Chapter XI](#chapter-xi) \
-    11.1. [Exercise 07 - Average global rating](#exercise-07-average-global-rating)
+    11.1. [Exercise 07 - Different view to find a Minimum](#exercise-07-different-view-to-find-a-minimum)
 12. [Chapter XII](#chapter-xii) \
-    12.1. [Exercise 08 - Find pizzeria’s restaurant locations](#exercise-08-find-pizzerias-restaurant-locations)    
-13. [Chapter XIII](#chapter-xiii) \
-    13.1. [Exercise 09 - Explicit type transformation](#exercise-09-explicit-type-transformation)        
+    12.1. [Exercise 08 - Fibonacci algorithm is in a function](#exercise-08-fibonacci-algorithm-is-in-a-function)    
+      
 
 ## Chapter I
 ## Preamble
 
-![D07_01](misc/images/D07_01.png)
+![D09_01](misc/images/D09_01.png)
 
-For detailed data over time, see the Curve of Usefulness. In other words, detailed data (i.e. user transactions, facts about products and providers, etc.) is not useful to us from a historical perspective, because we only need to know some aggregation to describe what was going on a year ago.
+There are many functional programming languages in the RDBMS world. We can mainly talk about a "one-to-one" dependency between a particular RDBMS engine and the functional language inside it. Please take a look at a sample of these languages:
+- T-SQL,
+- PL/SQL,
+- SQL,
+- PL/PGSQL,
+- PL/R,
+- PL/Python,
+- etc.
 
-Why is this happening? The reason lies in our analytical mind. Actually, we want to focus on our business strategy from a historical perspective to set new business goals, and we don't need the details. 
+Actually, there are two opposing opinions in the IT world about where business logic should be located. The first opinion is on Application Level, the second one is in RDBMS directly based on set UDF (User Defined Functions / Procedures / Packages). 
+Everyone chooses their own way to implement business logic. From our point of view, business logic should be in both places and we can tell you why.  
+Please take a look at the 2 simple architectures below. 
 
-From a database point of view, "Analytical mind" corresponds to OLAP traffic (information layer), "details" corresponds to OLTP traffic (raw data layer). Today, there is a more flexible pattern for storing detailed data and aggregated information in the ecosystem. I am talking about `LakeHouse = DataLake + DataWareHouse`.
+|  |  |
+| ------ | ------ |
+| ![D09_02](misc/images/D09_02.png) | Everything is clear, frontends and backends work through a special REST API layer that implements all the business logic. It's a really ideal application world. |
+| But there are always some privileged people / applications (like IDE) that work directly with our databases and... our pattern can be broken. | ![D09_03](misc/images/D09_03.png) |
 
-If we are talking about historical data, then we should mention the "Data Lifecycle Management" pattern. In simple words, what should we do with old data? TTL (time-to-live), SLA for data, Retention Data Policy, etc. are terms used in Data Governance strategy.
-
-![D07_02](misc/images/D07_02.png)
-
+Just think about it and try to create a clean architecture :-)
 
 
 ## Chapter II
@@ -69,7 +77,7 @@ Absolutely anything can be represented in SQL! Let's get started and have fun!
 ## Rules of the day
 
 - Please make sure you have your own database and access to it on your PostgreSQL cluster. 
-- Please download a [script](materials/model.sql) with Database Model here and apply the script to your database (you can use command line with psql or just run it through any IDE, for example DataGrip from JetBrains or pgAdmin from PostgreSQL community). **Our knowledge way is incremental and linear therefore please be aware all changes that you made in Day03 during Exercises 07-13 and in Day04 during Exercise 07 should be on place (its similar like in real world , when we applied a release and need to be consistency with data for new changes).**
+- Please download a [script](materials/model.sql) with Database Model here and apply the script to your database (you can use command line with psql or just run it through any IDE, for example DataGrip from JetBrains or pgAdmin from PostgreSQL community). **Our knowledge way is incremental and linear therefore please be aware all changes that you made in Day03 during Exercises 07-13 and in Day04 during Exercise 07 should be on place (its similar like in real world, when we applied a release and need to be consistency with data for new changes).**
 - All tasks contain a list of Allowed and Denied sections with listed database options, database types, SQL constructions etc. Please have a look at the section before you start.
 - Please take a look at the Logical View of our Database Model. 
 
@@ -102,208 +110,210 @@ Absolutely anything can be represented in SQL! Let's get started and have fun!
 - field menu_id - foreign key to menu
 - field order_date - date (for example 2022-01-01) of person order 
 
-People's visit and people's order are different entities and don't contain any correlation between data. For example, a customer can be in a restaurant (just looking at the menu) and at the same time place an order in another restaurant by phone or mobile application. Or another case, just be at home and again make a call with order without any visits.
+People's visit and people's order are different entities and don't contain any correlation between data. For example, a customer can be in a restaurant (just looking at the menu) and in that time place an order in another restaurant by phone or mobile application. Or another case, just be at home and again make a call with order without any visits.
 
 
 ## Chapter IV
-## Exercise 00 - Simple aggregated information
+## Exercise 00 - Audit of incoming inserts
 
-| Exercise 00: Simple aggregated information |                                                                                                                          |
+| Exercise 00: Audit of incoming inserts |                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex00                                                                                                                     |
-| Files to turn-in                      | `day07_ex00.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex00.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL|
+| Language                        | SQL, DDL, DML|
 
-Let's make a simple aggregation, please write a SQL statement that returns person identifiers and corresponding number of visits in any pizzerias and sorts by number of visits in descending mode and sorts by `person_id` in ascending mode. Please take a look at the sample of data below.
+We want to be stronger with data, and we don't want to lose any change events. Let's implement an audit function for the incoming changes of INSERT. 
+Please create a table `person_audit` with the same structure as a person table, but please add some additional changes. Take a look at the table below with descriptions for each column.
 
-| person_id | count_of_visits |
-| ------ | ------ |
-| 9 | 4 |
-| 4 | 3 |
-| ... | ... | 
+| Column | Type | Description |
+| ------ | ------ | ------ |
+| created | timestamp with time zone | timestamp when a new event has been created.  Default value is a current timestamp and NOT NULL |
+| type_event | char(1) | possible values I (insert), D (delete), U (update). Default value is ‘I’. NOT NULL. Add check constraint `ch_type_event` with possible values ‘I’, ‘U’ and ‘D’ |
+| row_id |bigint | copy of person.id. NOT NULL |
+| name |varchar | copy of person.name (no any constraints) |
+| age |integer | copy of person.age (no any constraints) |
+| gender |varchar | copy of person.gender (no any constraints) |
+| address |varchar | copy of person.address (no any constraints) |
+
+Actually, let’s create a Database Trigger Function with the name `fnc_trg_person_insert_audit` that should process `INSERT` DML traffic and make a copy of a new row in the person_audit table.
+
+Just a hint, if you want to implement a PostgreSQL trigger (please read it in PostgreSQL documentation), you need to create 2 objects: Database Trigger Function and Database Trigger. 
+
+So, please define a Database Trigger with the name `trg_person_insert_audit` with the following options:
+- trigger with "FOR EACH ROW" option;
+- trigger with "AFTER INSERT";
+- trigger calls fnc_trg_person_insert_audit trigger function.
+
+When you are done with the trigger objects, please issue an `INSERT` statement into the person table. 
+`INSERT INTO person(id, name, age, gender, address) VALUES (10,'Damir', 22, 'male', 'Irkutsk');`
 
 
 ## Chapter V
-## Exercise 01 - Let’s see real names
+## Exercise 01 - Audit of incoming updates
 
-| Exercise 01: Let’s see real names|                                                                                                                          |
+| Exercise 01: Audit of incoming updates|                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex01                                                                                                                     |
-| Files to turn-in                      | `day07_ex01.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex01.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-Please modify an SQL statement from Exercise 00 and return a person name (not an identifier). Additional clause is we need to see only top 4 people with maximum visits in each pizzerias and sorted by a person name. See the example of output data below.
+Let’s continue to implement our audit pattern for the person table. Just define a trigger `trg_person_update_audit` and corresponding trigger function `fnc_trg_person_update_audit` to handle all `UPDATE` traffic on the person table. We should save the OLD states of all attribute values.
 
-| name | count_of_visits |
-| ------ | ------ |
-| Dmitriy | 4 |
-| Denis | 3 |
-| ... | ... | 
+When you are ready, apply the UPDATE statements below.
 
+`UPDATE person SET name = 'Bulat' WHERE id = 10;`
+`UPDATE person SET name = 'Damir' WHERE id = 10;`
 
 
 ## Chapter VI
-## Exercise 02 - Restaurants statistics
+## Exercise 02 - Audit of incoming deletes
 
-| Exercise 02: Restaurants statistics|                                                                                                                          |
+| Exercise 02: Audit of incoming deletes|                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex02                                                                                                                     |
-| Files to turn-in                      | `day07_ex02.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex02.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-Please write a SQL statement to see 3 favorite restaurants by visits and by orders in a list (please add an action_type column with values 'order' or 'visit', it depends on the data from the corresponding table). Please have a look at the example data below. The result should be sorted in ascending order by the action_type column and in descending order by the count column.
+Finally, we need to handle `DELETE` statements and make a copy of the OLD states for all attribute’s values. Please create a trigger `trg_person_delete_audit` and corresponding trigger function `fnc_trg_person_delete_audit`. 
 
-| name | count | action_type |
-| ------ | ------ | ------ |
-| Dominos | 6 | order |
-| ... | ... | ... |
-| Dominos | 7 | visit |
-| ... | ... | ... |
+When you are ready, use the SQL statement below.
+
+`DELETE FROM person WHERE id = 10;`
 
 ## Chapter VII
-## Exercise 03 - Restaurants statistics #2
+## Exercise 03 - Generic Audit
 
-| Exercise 03: Restaurants statistics #2 |                                                                                                                          |
+| Exercise 03: Generic Audit |                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex03                                                                                                                     |
-| Files to turn-in                      | `day07_ex03.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex03.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-Write an SQL statement to see how restaurants are grouped by visits and by orders, and joined together by restaurant name.  
-You can use the internal SQL from Exercise 02 (Restaurants by Visits and by Orders) without any restrictions on the number of rows.
+Actually, there are 3 triggers for one `person` table. Let's merge all our logic into one main trigger called `trg_person_audit` and a new corresponding trigger function `fnc_trg_person_audit`.
 
-In addition, add the following rules.
-- Compute a sum of orders and visits for the corresponding pizzeria (note that not all pizzeria keys are represented in both tables).
-- Sort the results by the `total_count` column in descending order and by the `name` column in ascending order.
-Take a look at the example data below.
+In other words, all DML traffic (`INSERT`, `UPDATE`, `DELETE`) should be handled by the one function block. Please explicitly define a separate IF-ELSE block for each event (I, U, D)!
 
-| name | total_count |
-| ------ | ------ |
-| Dominos | 13 |
-| DinoPizza | 9 |
-| ... | ... | 
+Additionally, please follow the steps below .
+- to remove 3 old triggers from the person table;
+- to remove 3 old trigger functions;
+- to do a `TRUNCATE` (or `DELETE`) of all rows in our `person_audit` table.
+
+When you are ready, reapply the set of DML statements.
+`INSERT INTO person(id, name, age, gender, address)  VALUES (10,'Damir', 22, 'male', 'Irkutsk');`
+`UPDATE person SET name = 'Bulat' WHERE id = 10;`
+`UPDATE person SET name = 'Damir' WHERE id = 10;`
+`DELETE FROM person WHERE id = 10;`
 
 
 ## Chapter VIII
-## Exercise 04 - Clause for groups
+## Exercise 04 - Database View VS Database Function
 
 
-| Exercise 04: Clause for groups |                                                                                                                          |
+| Exercise 04: Database View VS Database Function |                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex04                                                                                                                     |
-| Files to turn-in                      | `day07_ex04.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex04.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
-| **Denied**                               |                                                                                                                          |
-| Syntax construction                        | `WHERE`                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-Please write a SQL statement that returns the person's name and the corresponding number of visits to any pizzerias if the person has visited more than 3 times (> 3). Please take a look at the sample data below.
+As you recall, we created 2 database views to separate data from the person tables by gender attribute. 
+Please define 2 SQL functions (note, not pl/pgsql functions) with the names:
+- `fnc_persons_female` (should return female persons),
+- `fnc_persons_male` (should return male persons).
 
-| name | count_of_visits |
-| ------ | ------ |
-| Dmitriy | 4 |
+To check yourself and call a function, you can make a statement like this (Amazing! You can work with a function like a virtual table!):
 
+    SELECT *
+    FROM fnc_persons_male();
+
+    SELECT *
+    FROM fnc_persons_female();
 
 
 ## Chapter IX
-## Exercise 05 - Person's uniqueness
+## Exercise 05 - Parameterized Database Function
 
 
-| Exercise 05: Person's uniqueness|                                                                                                                          |
+| Exercise 05: Parameterized Database Function|                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex05                                                                                                                     |
-| Files to turn-in                      | `day07_ex05.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex05.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        |  ANSI SQL                                                                                              |
-| **Denied**                               |                                                                                                                          |
-| Syntax construction                        |  `GROUP BY`, any type (`UNION`,...) working with sets                                                                                              |
+| Language                        |  SQL, DDL, DML                                                                                               |
 
-Please write a simple SQL query that returns a list of unique person names who have placed orders at any pizzerias. The result should be sorted by person name. Please see the example below.
+Looks like 2 functions from Exercise 04 need a more generic approach. Please remove these functions from the database before proceeding. 
+Write a generic SQL function (note, not pl/pgsql-function) called `fnc_persons`. This function should have an `IN` parameter pgender with the default value = 'female'. 
 
-| name | 
-| ------ |
-| Andrey |
-| Anna | 
-| ... | 
+To check yourself and call a function, you can make a statement like this (Wow! You can work with a function like with a virtual table, but with more flexibility!):
+
+    select *
+    from fnc_persons(pgender := 'male');
+
+    select *
+    from fnc_persons();
+
 
 ## Chapter X
-## Exercise 06 - Restaurant metrics
+## Exercise 06 - Function like a function-wrapper
 
 
-| Exercise 06: Restaurant metrics|                                                                                                                          |
+| Exercise 06: Function like a function-wrapper|                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex06                                                                                                                     |
-| Files to turn-in                      | `day07_ex06.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex06.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-Please write a SQL statement that returns the number of orders, the average price, the maximum price and the minimum price for pizzas sold by each pizzeria restaurant. The result should be sorted by pizzeria name. See the sample data below. 
-Round the average price to 2 floating numbers.
+Now let's look at pl/pgsql functions. 
 
-| name | count_of_orders | average_price | max_price | min_price |
-| ------ | ------ | ------ | ------ | ------ |
-| Best Pizza | 5 | 780 | 850 | 700 |
-| DinoPizza | 5 | 880 | 1000 | 800 |
-| ... | ... | ... | ... | ... |
+Please create a pl/pgsql function `fnc_person_visits_and_eats_on_date` based on an SQL statement that will find the names of pizzerias that a person (`IN` pperson parameter with default value 'Dmitriy') visited and where he could buy pizza for less than the given amount in rubles (`IN` pprice parameter with default value 500) on the given date (`IN` pdate parameter with default value January 8, 2022).
+
+To check yourself and call a function, you can make a statement like the one below.
+
+    select *
+    from fnc_person_visits_and_eats_on_date(pprice := 800);
+
+    select *
+    from fnc_person_visits_and_eats_on_date(pperson := 'Anna',pprice := 1300,pdate := '2022-01-01');
 
 
 ## Chapter XI
-## Exercise 07 - Average global rating
+## Exercise 07 - Different view to find a Minimum
 
 
-| Exercise 07: Average global rating|                                                                                                                          |
+| Exercise 07: Different view to find a Minimum|                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex07                                                                                                                     |
-| Files to turn-in                      | `day07_ex07.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex07.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-Write an SQL statement that returns a common average rating (the output attribute name is global_rating) for all restaurants. Round your average rating to 4 floating point numbers.
+Please write an SQL or pl/pgsql function `func_minimum` (it is up to you) that has an input parameter that is an array of numbers and the function should return a minimum value. 
+
+To check yourself and call a function, you can make a statement like the one below.
+
+    SELECT func_minimum(VARIADIC arr => ARRAY[10.0, -1.0, 5.0, 4.4]);
 
 
 ## Chapter XII
-## Exercise 08 - Find pizzeria’s restaurant locations
+## Exercise 08 - Fibonacci algorithm is in a function
 
 
-| Exercise 08: Find pizzeria’s restaurant locations|                                                                                                                          |
+| Exercise 08: Fibonacci algorithm is in a function|                                                                                                                          |
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Turn-in directory                     | ex08                                                                                                                     |
-| Files to turn-in                      | `day07_ex08.sql`                                                                                 |
+| Files to turn-in                      | `day09_ex08.sql`                                                                                 |
 | **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
+| Language                        | SQL, DDL, DML                                                                                              |
 
-We know personal addresses from our data. Let's assume that this person only visits pizzerias in his city. Write a SQL statement that returns the address, the name of the pizzeria, and the amount of the person's orders. The result should be sorted by address and then by restaurant name. Please take a look at the sample output data below.
+Write an SQL or pl/pgsql function `fnc_fibonacci` (it's up to you) that has an input parameter pstop of type integer (default is 10) and the function output is a table of all Fibonacci numbers less than pstop.
 
-| address | name |count_of_orders |
-| ------ | ------ |------ |
-| Kazan | Best Pizza |4 |
-| Kazan | DinoPizza |4 |
-| ... | ... | ... | 
+To check yourself and call a function, you can make a statement like the one below.
 
-
-## Chapter XIII
-## Exercise 09 - Explicit type transformation
-
-
-| Exercise 09: Explicit type transformation|                                                                                                                          |
-|---------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| Turn-in directory                     | ex09                                                                                                                     |
-| Files to turn-in                      | `day07_ex09.sql`                                                                                 |
-| **Allowed**                               |                                                                                                                          |
-| Language                        | ANSI SQL                                                                                              |
-
-Please write a SQL statement that returns aggregated information by person's address, the result of "Maximum Age - (Minimum Age / Maximum Age)" presented as a formula column, next is average age per address and the result of comparison between formula and average columns (in other words, if formula is greater than average, then True, otherwise False value).
-
-The result should be sorted by address column. Please take a look at the example of output data below.
-
-| address | formula |average | comparison |
-| ------ | ------ |------ |------ |
-| Kazan | 44.71 |30.33 | true |
-| Moscow | 20.24 | 18.5 | true |
-| ... | ... | ... | ... |
-
+    select * from fnc_fibonacci(100);
+    select * from fnc_fibonacci();
 
